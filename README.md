@@ -55,7 +55,9 @@ If you build **without** `--build-arg DATABASE_URL`, the image still builds but 
 2. **`railway.toml`** runs `npx prisma migrate deploy` as a **release command** (before the new revision goes live), so the DB is reachable and migrations are not part of `CMD`.
 3. Optionally add **`DATABASE_URL`** as a **Docker build argument** in Railway if you also want migrations applied during `docker build` (redundant if release command runs).
 
-The app listens on **`PORT`** (Railway sets this; the Docker image defaults to **8080**).
+The app listens on **`PORT`** (Railway sets this at runtime). **`healthcheckPath`** is `/health` in `railway.toml`.
+
+If the public URL returns **502 / "Application failed to respond"**, check: **Public networking** is enabled, the deployment is **healthy**, and logs show `Listening on 0.0.0.0:<PORT>` where `<PORT>` matches the platform **`PORT`** variable.
 
 ## Push to GitHub
 

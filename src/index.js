@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -24,6 +24,7 @@ process.on('uncaughtException', (err) => {
 
 const app = express();
 app.disable('x-powered-by');
+app.set('trust proxy', 1);
 
 app.use(express.json());
 app.use((req, res, next) => {
@@ -31,12 +32,15 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use('/auth', authRoutes);
-app.use('/ride', rideRoutes);
-
 app.get('/health', (_req, res) => {
   res.json({ ok: true, timestamp: new Date().toISOString() });
 });
+app.get('/', (_req, res) => {
+  res.redirect(302, '/health');
+});
+
+app.use('/auth', authRoutes);
+app.use('/ride', rideRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ error: 'Not found' });
@@ -62,12 +66,17 @@ setInterval(() => {
 let server;
 try {
   server = http.createServer(app);
-  const io = new Server(server);
+  const io = new Server(server, {
+    connectionStateRecovery: { maxDisconnectionDuration: 2 * 60 * 1000 },
+  });
   registerSockets(io);
 } catch (err) {
   logger.error('startup', 'Failed to initialize server', err);
   process.exit(1);
 }
+
+server.keepAliveTimeout = 65_000;
+server.headersTimeout = 66_000;
 
 server.on('error', (err) => {
   logger.error('http-server', 'Server error', err);
@@ -102,8 +111,13 @@ prisma
   .$connect()
   .then(() => {
     logger.info('prisma', 'Connected to database');
+    logger.info('server', 'Startup bind config', {
+      port: PORT,
+      portEnv: process.env.PORT ?? null,
+      railway: process.env.RAILWAY_ENVIRONMENT ?? null,
+    });
     server.listen(PORT, '0.0.0.0', () => {
-      logger.info('server', `Listening on port ${PORT}`);
+      logger.info('server', `Listening on 0.0.0.0:${PORT}`);
     });
   })
   .catch((err) => {

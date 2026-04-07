@@ -17,7 +17,7 @@ COPY src ./src
 RUN npx prisma generate
 
 ENV NODE_ENV=production
-ENV PORT=8080
+# Railway (and other hosts) must set PORT at runtime — do not hardcode here.
 EXPOSE 8080
 
 CMD ["node", "src/index.js"]
