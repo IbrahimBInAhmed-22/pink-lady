@@ -16,13 +16,6 @@ COPY src ./src
 
 RUN npx prisma generate
 
-# Apply migrations at image build when DATABASE_URL is available (pass as Docker build-arg on CI/Railway).
-# Runtime no longer runs migrate — avoids slow/failed container start when DB is unreachable at boot.
-ARG DATABASE_URL
-RUN if [ -n "$DATABASE_URL" ]; then npx prisma migrate deploy; \
-    else echo "Skipping prisma migrate deploy: pass DATABASE_URL as a build-arg to apply migrations in the image."; \
-    fi
-
 ENV NODE_ENV=production
 ENV PORT=8080
 EXPOSE 8080
