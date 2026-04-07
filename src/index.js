@@ -34,9 +34,9 @@ app.use((req, res, next) => {
 app.use('/auth', authRoutes);
 app.use('/ride', rideRoutes);
 
-const server = http.createServer(app);
-const io = new Server(server);
-registerSockets(io);
+app.get('/health', (_req, res) => {
+  res.json({ ok: true, timestamp: new Date().toISOString() });
+});
 
 app.use((req, res) => {
   res.status(404).json({ error: 'Not found' });
@@ -52,7 +52,51 @@ app.use((err, req, res, _next) => {
   res.status(status).json(body);
 });
 
-const PORT = process.env.PORT || 5000;
+const parsedPort = parseInt(process.env.PORT, 10);
+const PORT = Number.isFinite(parsedPort) && parsedPort > 0 ? parsedPort : 8080;
+
+setInterval(() => {
+  logger.info('heartbeat', 'Process alive', { uptime: process.uptime() });
+}, 30000);
+
+let server;
+try {
+  server = http.createServer(app);
+  const io = new Server(server);
+  registerSockets(io);
+} catch (err) {
+  logger.error('startup', 'Failed to initialize server', err);
+  process.exit(1);
+}
+
+server.on('error', (err) => {
+  logger.error('http-server', 'Server error', err);
+});
+
+async function shutdown(signal) {
+  logger.warn('process', `Received ${signal}, shutting down`);
+  try {
+    if (server && server.listening) {
+      await new Promise((resolve, reject) => {
+        server.close((err) => (err ? reject(err) : resolve()));
+      });
+    }
+    await prisma.$disconnect();
+    logger.info('process', 'Shutdown complete');
+    process.exit(0);
+  } catch (err) {
+    logger.error('process', 'Error during shutdown', err);
+    process.exit(1);
+  }
+}
+
+process.on('SIGTERM', () => {
+  shutdown('SIGTERM');
+});
+
+process.on('SIGINT', () => {
+  shutdown('SIGINT');
+});
 
 prisma
   .$connect()
@@ -66,7 +110,3 @@ prisma
     logger.error('prisma', 'Failed to connect to database', err);
     process.exit(1);
   });
-
-server.on('error', (err) => {
-  logger.error('http-server', 'Server error', err);
-});

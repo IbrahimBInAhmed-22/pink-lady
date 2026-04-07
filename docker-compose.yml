@@ -20,11 +20,11 @@ services:
     build: .
     restart: unless-stopped
     ports:
-      - "5000:5000"
+      - "8080:8080"
     environment:
       DATABASE_URL: postgresql://pinklady:pinklady@db:5432/pinklady
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production-use-long-random-string}
-      PORT: 5000
+      PORT: 8080
     depends_on:
       db:
         condition: service_healthy
